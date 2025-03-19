@@ -1,181 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ansible Hosts Viewer</title>
-  <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="node_modules/@fortawesome/fontawesome-free/css/all.min.css">
-  <!-- Custom Dark Mode CSS -->
-  <style>
-    body {
-      background-color: #121212;
-      color: #ffffff;
-    }
-
-    h1, h2 {
-      color: #ffffff;
-    }
-
-    .btn-primary {
-      background-color: #1a73e8;
-      border-color: #1a73e8;
-    }
-
-    .btn-primary:hover {
-      background-color: #1669c1;
-      border-color: #1669c1;
-    }
-
-    .list-group-item {
-      background-color: #1e1e1e;
-      color: #ffffff;
-      border-color: #2a2a2a;
-    }
-
-    .list-group-item:hover {
-      background-color: #333333;
-    }
-
-    .dragging {
-      opacity: 0.5;
-    }
-
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ansible Inventory Editor</title>
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="node_modules/@fortawesome/fontawesome-free/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body class="container py-5">
-  <h1 class="mb-4">Ansible Hosts Viewer</h1>
-  <button id="loadFile" class="btn btn-primary mb-3">Load Hosts File</button>
-
-  <div class="row">
-    <div class="col">
-      <h2>Hosts</h2>
-      <ul id="hostsList" class="list-group"></ul>
+<body class="bg-dark text-light">
+    <div class="container mt-4">
+        <h1 class="text-center">Ansible Inventory Editor</h1>
+        <div class="row">
+            <div class="col-md-6">
+                <h3>Hosts</h3>
+                <ul id="hostsList" class="list-group"></ul>
+            </div>
+            <div class="col-md-6">
+                <h3>Groups</h3>
+                <ul id="groupsList" class="list-group"></ul>
+            </div>
+        </div>
     </div>
-    <div class="col">
-      <h2>Groups</h2>
-      <ul id="groupsList" class="list-group"></ul>
-    </div>
-  </div>
-
-  <!-- Include Bootstrap Bundle JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-  <script>
-    document.getElementById('loadFile').addEventListener('click', async () => {
-      const data = await window.api.selectHostsFile();
-
-      // Clear previous lists
-      const hostsList = document.getElementById('hostsList');
-      const groupsList = document.getElementById('groupsList');
-      hostsList.innerHTML = '';
-      groupsList.innerHTML = '';
-
-      // Make hosts draggable
-      const makeDraggable = (element, host) => {
-        element.setAttribute('draggable', true);
-        element.addEventListener('dragstart', (e) => {
-          e.dataTransfer.setData('text/plain', host);
-          element.classList.add('dragging');
-        });
-
-        element.addEventListener('dragend', () => {
-          element.classList.remove('dragging');
-        });
-      };
-
-      // Render all/hosts
-      if (data && data.all && data.all.hosts) {
-        Object.keys(data.all.hosts).forEach(host => {
-          const hostItem = document.createElement('li');
-          hostItem.className = 'list-group-item';
-          hostItem.textContent = host;
-
-          makeDraggable(hostItem, host);
-          hostsList.appendChild(hostItem);
-        });
-      } else {
-        alert('No hosts found under all/hosts in the YAML file.');
-      }
-
-      // Render all/children recursively
-      const processChildren = (node, parent) => {
-        Object.keys(node).forEach(key => {
-          if (key === 'children' || key === 'hosts') {
-            // Render hosts under the group with a less prominent style
-            if (key === 'hosts' && typeof node[key] === 'object' && node[key] !== null) {
-            Object.keys(node[key]).forEach(host => {
-                const hostItem = document.createElement('li');
-                hostItem.className = 'list-group-item';
-                hostItem.style.color = '#b0b0b0'; // Light gray for dark mode visibility
-                hostItem.style.fontSize = '0.9rem';
-                hostItem.innerHTML = `<i class="fas fa-fw fa-desktop"></i> &nbsp; ${host}`;
-                parent.appendChild(hostItem);
-            });
-            }
-            if (key === 'children' && typeof node[key] === 'object' && node[key] !== null) {
-              processChildren(node[key], parent); // Process child groups recursively
-            }
-          } else {
-            const groupItem = document.createElement('li');
-            groupItem.className = 'list-group-item';
-
-            const groupTitle = document.createElement('span');
-            groupTitle.textContent = key;
-            groupTitle.style.cursor = 'pointer';
-            groupTitle.style.fontWeight = 'bold';
-
-            const nestedList = document.createElement('ul');
-            nestedList.className = 'list-group mt-2';
-            nestedList.style.display = 'none';
-
-            // Toggle nested group visibility
-            groupTitle.addEventListener('click', () => {
-              nestedList.style.display = nestedList.style.display === 'none' ? 'block' : 'none';
-            });
-
-            // Make groups droppable
-            groupItem.addEventListener('dragover', (e) => {
-              e.preventDefault();
-              groupItem.style.backgroundColor = '#333333'; // Highlight drop area
-            });
-
-            groupItem.addEventListener('dragleave', () => {
-              groupItem.style.backgroundColor = ''; // Reset background
-            });
-
-            groupItem.addEventListener('drop', (e) => {
-              e.preventDefault();
-              groupItem.style.backgroundColor = ''; // Reset background
-              const droppedHost = e.dataTransfer.getData('text/plain');
-
-              // Add the dropped host to the group
-              const newHostItem = document.createElement('li');
-              newHostItem.className = 'list-group-item text'; // Less prominent style for dropped hosts
-              newHostItem.style.fontSize = '0.9rem';
-              newHostItem.textContent = `Host: ${droppedHost}`;
-
-              nestedList.appendChild(newHostItem);
-            });
-
-            groupItem.appendChild(groupTitle);
-            parent.appendChild(groupItem);
-            parent.appendChild(nestedList);
-
-            if (typeof node[key] === 'object' && node[key] !== null) {
-              processChildren(node[key], nestedList); // Recursively process nested children
-            }
-          }
-        });
-      };
-
-      if (data && data.all && data.all.children) {
-        processChildren(data.all.children, groupsList);
-      } else {
-        alert('No "all/children" section found in the YAML file.');
-      }
-    });
-  </script>
-
+    <script src="renderer.js"></script>
 </body>
 </html>
